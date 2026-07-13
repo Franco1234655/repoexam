@@ -90,13 +90,3 @@ Aucun de ces tests n'a besoin de `.env.local` chargé ni d'accès réseau — il
 - `.env.local` est dans `.gitignore`, jamais commité.
 - `application.properties` ne contient que des `${VARIABLE}`, aucune valeur en clair.
 
-## Ce qui reste à faire / vérifier
-
-1. Créer le vrai bucket S3 et la vraie queue SQS sur AWS s'ils n'existent pas encore.
-2. Définir les 5 variables d'environnement côté déploiement preprod (dashboard console.poja.io
-   ou secrets GitHub Actions selon ce qu'utilise ton cours — non vérifié avec certitude de mon
-   côté).
-3. Vérifier après le déploiement que `GET /ping` puis `POST /images` répondent correctement sur
-   l'URL Lambda preprod.
-4. Ce code n'a pas été compilé/exécuté dans mon environnement (pas d'accès Maven Central) —
-   valide-le avec `./gradlew build` avant de pousser en `prod`.
