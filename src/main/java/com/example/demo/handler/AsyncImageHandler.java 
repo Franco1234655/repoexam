@@ -1,0 +1,104 @@
+package com.example.demo.handler;
+
+import static java.io.File.createTempFile;
+
+import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.amazonaws.services.lambda.runtime.events.SQSEvent;
+import com.example.demo.PojaApplication;
+import com.example.demo.PojaGenerated;
+import com.example.demo.bucket.BucketConf;
+import com.example.demo.image.GrayscaleConverter;
+import com.example.demo.mail.Email;
+import com.example.demo.mail.Mailer;
+import com.example.demo.queue.ImageProcessingMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.mail.internet.InternetAddress;
+import java.io.File;
+import java.nio.file.Files;
+import java.util.List;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
+import software.amazon.awssdk.core.ResponseTransformer;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
+/**
+ * Handler Lambda déclenché par les messages SQS envoyés par ImageUploadEventPublisher. C'est un
+ * point d'entrée séparé de LambdaHandler (celui-ci sert le trafic HTTP synchrone) -- il faut le
+ * déclarer comme une seconde fonction Lambda (event source: la queue SQS) dans la config
+ * d'infrastructure POJA (poja.yml / CD compute), pas dans ce fichier.
+ *
+ * <p>NB: recharger tout le contexte Spring à chaque invocation coûte cher en cold start ; pour un
+ * exercice/exam ça reste largement suffisant. Une version plus poussée réutiliserait un contexte
+ * statique comme le fait LambdaHandler avec SpringBootLambdaContainerHandler.
+ */
+@PojaGenerated
+public class AsyncImageHandler implements RequestHandler<SQSEvent, Void> {
+
+  @Override
+  public Void handleRequest(SQSEvent event, Context context) {
+    try (ConfigurableApplicationContext ctx = SpringApplication.run(PojaApplication.class)) {
+      var objectMapper = ctx.getBean(ObjectMapper.class);
+      var bucketConf = ctx.getBean(BucketConf.class);
+      var grayscaleConverter = ctx.getBean(GrayscaleConverter.class);
+      var mailer = ctx.getBean(Mailer.class);
+
+      for (SQSEvent.SQSMessage record : event.getRecords()) {
+        processMessage(record.getBody(), objectMapper, bucketConf, grayscaleConverter, mailer);
+      }
+    }
+    return null;
+  }
+
+  private void processMessage(
+      String body,
+      ObjectMapper objectMapper,
+      BucketConf bucketConf,
+      GrayscaleConverter grayscaleConverter,
+      Mailer mailer)
+      throws Exception {
+    var message = objectMapper.readValue(body, ImageProcessingMessage.class);
+
+    byte[] originalBytes =
+        bucketConf
+            .getS3Client()
+            .getObject(
+                GetObjectRequest.builder()
+                    .bucket(bucketConf.getBucketName())
+                    .key(message.originalS3Key())
+                    .build(),
+                ResponseTransformer.toBytes())
+            .asByteArray();
+
+    String formatName = formatNameOf(message.nomFichier());
+    byte[] grayscaleBytes =
+        grayscaleConverter.apply(new GrayscaleConverter.Input(originalBytes, formatName));
+
+    String grayscaleKey = "grayscale/" + message.id() + "-" + message.nomFichier();
+    bucketConf
+        .getS3Client()
+        .putObject(
+            PutObjectRequest.builder().bucket(bucketConf.getBucketName()).key(grayscaleKey).build(),
+            software.amazon.awssdk.core.sync.RequestBody.fromBytes(grayscaleBytes));
+
+    File attachment = createTempFile("grayscale-", "-" + message.nomFichier());
+    Files.write(attachment.toPath(), grayscaleBytes);
+
+    mailer.accept(
+        new Email(
+            new InternetAddress(message.email()),
+            List.of(),
+            List.of(),
+            "Votre image convertie en niveaux de gris",
+            "<p>Bonjour,</p><p>Votre image <b>"
+                + message.nomFichier()
+                + "</b> a été convertie en niveaux de gris. Vous la trouverez en pièce jointe.</p>",
+            List.of(attachment)));
+  }
+
+  private String formatNameOf(String fileName) {
+    String lower = fileName.toLowerCase();
+    return lower.endsWith(".png") ? "png" : "jpg";
+  }
+}

@@ -1,0 +1,89 @@
+openapi: 3.0.3
+info:
+  title: Image Upload API
+  version: "1.0.0"
+  description: >
+    Deux endpoints : POST (synchrone, upload + enregistrement en base) et
+    GET (lecture des métadonnées enregistrées). Le traitement "niveau de
+    gris + S3 + email" se fait de façon asynchrone via SQS après le POST.
+
+paths:
+  /images:
+    post:
+      operationId: uploadImage
+      summary: Upload une image (jpeg ou png) et un email
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, email]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Image au format image/jpeg ou image/png
+                email:
+                  type: string
+                  format: email
+      responses:
+        "201":
+          description: Image enregistrée, traitement asynchrone déclenché
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageUploadResponse"
+        "400":
+          description: Format de fichier non supporté (autre que jpeg/png) ou email invalide
+
+    get:
+      operationId: listImages
+      summary: Liste toutes les images enregistrées
+      responses:
+        "200":
+          description: Liste des images
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImageUploadResponse"
+
+  /images/{id}:
+    get:
+      operationId: getImageById
+      summary: Récupère les métadonnées d'une image par id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Métadonnées de l'image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageUploadResponse"
+        "404":
+          description: Image introuvable
+
+components:
+  schemas:
+    ImageUploadResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nomFichier:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
