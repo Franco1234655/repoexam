@@ -146,18 +146,6 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.2'
     testImplementation 'org.junit-pioneer:junit-pioneer:2.2.0'
 
-    // A ajouter dans le bloc dependencies { ... } de build.gradle
-// (aucune de ces libs n'est présente dans ton template actuel)
 
-    // S3 (manquant -- sqs/ses/eventbridge sont déjà là mais pas s3)
-    implementation 'software.amazon.awssdk:s3:2.21.40'
-
-    // Base de données Postgres via Spring Data JPA
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa:3.2.2'
-    runtimeOnly 'org.postgresql:postgresql:42.7.3'
-
-    // Validation des DTO (email bien formé, etc.) -- optionnel mais recommandé
-    implementation 'org.springframework.boot:spring-boot-starter-validation:3.2.2'
 
 }
-
