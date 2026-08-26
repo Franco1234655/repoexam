@@ -15,25 +15,25 @@ import org.springframework.stereotype.Component;
 @Component
 public class GrayscaleConverter implements Function<GrayscaleConverter.Input, byte[]> {
 
-    public record Input(byte[] imageBytes, String formatName) {}
+  public record Input(byte[] imageBytes, String formatName) {}
 
-    @Override
-    public byte[] apply(Input input) {
-        try {
-            BufferedImage source = ImageIO.read(new ByteArrayInputStream(input.imageBytes()));
-            if (source == null) {
-                throw new IllegalArgumentException("Impossible de lire l'image (format non supporté)");
-            }
+  @Override
+  public byte[] apply(Input input) {
+    try {
+      BufferedImage source = ImageIO.read(new ByteArrayInputStream(input.imageBytes()));
+      if (source == null) {
+        throw new IllegalArgumentException("Impossible de lire l'image (format non supporté)");
+      }
 
-            BufferedImage grayscale =
-                    new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
-            new ColorConvertOp(null).filter(source, grayscale);
+      BufferedImage grayscale =
+          new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+      new ColorConvertOp(null).filter(source, grayscale);
 
-            var output = new ByteArrayOutputStream();
-            ImageIO.write(grayscale, input.formatName(), output);
-            return output.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+      var output = new ByteArrayOutputStream();
+      ImageIO.write(grayscale, input.formatName(), output);
+      return output.toByteArray();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
+  }
 }

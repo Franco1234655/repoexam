@@ -23,64 +23,68 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @AllArgsConstructor
 public class ImageUploadService {
 
-    private static final Set<MediaType> ALLOWED_TYPES = Set.of(MediaType.IMAGE_JPEG, MediaType.IMAGE_PNG);
-    private static final String ORIGINAL_PREFIX = "original/";
+  private static final Set<MediaType> ALLOWED_TYPES =
+      Set.of(MediaType.IMAGE_JPEG, MediaType.IMAGE_PNG);
+  private static final String ORIGINAL_PREFIX = "original/";
 
-    private final ImageUploadRepository repository;
-    private final FileTyper fileTyper;
-    private final BucketConf bucketConf;
-    private final ImageUploadEventPublisher eventPublisher;
+  private final ImageUploadRepository repository;
+  private final FileTyper fileTyper;
+  private final BucketConf bucketConf;
+  private final ImageUploadEventPublisher eventPublisher;
 
-    /** Partie SYNCHRONE: validation + upload S3 de l'original + écriture en base. */
-    public ImageUpload upload(MultipartFile file, String email) {
-        File tempFile = toTempFile(file);
-        try {
-            MediaType detectedType = fileTyper.apply(tempFile);
-            if (!ALLOWED_TYPES.contains(detectedType)) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Seuls les formats image/jpeg et image/png sont acceptés");
-            }
+  /** Partie SYNCHRONE: validation + upload S3 de l'original + écriture en base. */
+  public ImageUpload upload(MultipartFile file, String email) {
+    File tempFile = toTempFile(file);
+    try {
+      MediaType detectedType = fileTyper.apply(tempFile);
+      if (!ALLOWED_TYPES.contains(detectedType)) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST, "Seuls les formats image/jpeg et image/png sont acceptés");
+      }
 
-            UUID id = UUID.randomUUID();
-            String originalKey = ORIGINAL_PREFIX + id + "-" + file.getOriginalFilename();
+      UUID id = UUID.randomUUID();
+      String originalKey = ORIGINAL_PREFIX + id + "-" + file.getOriginalFilename();
 
-            bucketConf
-                    .getS3Client()
-                    .putObject(
-                            PutObjectRequest.builder()
-                                    .bucket(bucketConf.getBucketName())
-                                    .key(originalKey)
-                                    .contentType(detectedType.toString())
-                                    .build(),
-                            RequestBody.fromFile(tempFile));
+      bucketConf
+          .getS3Client()
+          .putObject(
+              PutObjectRequest.builder()
+                  .bucket(bucketConf.getBucketName())
+                  .key(originalKey)
+                  .contentType(detectedType.toString())
+                  .build(),
+              RequestBody.fromFile(tempFile));
 
-            var imageUpload = new ImageUpload(id, file.getOriginalFilename(), email, Instant.now());
-            repository.save(imageUpload);
+      var imageUpload = new ImageUpload(id, file.getOriginalFilename(), email, Instant.now());
+      repository.save(imageUpload);
 
-            // Déclenche la partie ASYNCHRONE (grayscale + email), traitée par un autre handler Lambda.
-            eventPublisher.publish(new ImageProcessingMessage(id, originalKey, file.getOriginalFilename(), email));
+      // Déclenche la partie ASYNCHRONE (grayscale + email), traitée par un autre handler Lambda.
+      eventPublisher.publish(
+          new ImageProcessingMessage(id, originalKey, file.getOriginalFilename(), email));
 
-            return imageUpload;
-        } finally {
-            tempFile.delete();
-        }
+      return imageUpload;
+    } finally {
+      tempFile.delete();
     }
+  }
 
-    public ImageUpload getById(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-    }
+  public ImageUpload getById(UUID id) {
+    return repository
+        .findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+  }
 
-    public List<ImageUpload> getAll() {
-        return repository.findAll();
-    }
+  public List<ImageUpload> getAll() {
+    return repository.findAll();
+  }
 
-    private File toTempFile(MultipartFile file) {
-        try {
-            File tempFile = File.createTempFile("upload-", "-" + file.getOriginalFilename());
-            file.transferTo(tempFile);
-            return tempFile;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+  private File toTempFile(MultipartFile file) {
+    try {
+      File tempFile = File.createTempFile("upload-", "-" + file.getOriginalFilename());
+      file.transferTo(tempFile);
+      return tempFile;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
+  }
 }

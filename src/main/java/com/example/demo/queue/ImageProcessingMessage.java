@@ -8,4 +8,4 @@ import java.util.UUID;
  * temporaire, il n'existera plus dans l'invocation asynchrone.
  */
 public record ImageProcessingMessage(
-        UUID id, String originalS3Key, String nomFichier, String email) {}
+    UUID id, String originalS3Key, String nomFichier, String email) {}

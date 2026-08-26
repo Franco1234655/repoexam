@@ -17,25 +17,25 @@ import org.springframework.web.multipart.MultipartFile;
 @AllArgsConstructor
 public class ImageUploadController {
 
-    private final ImageUploadService imageUploadService;
+  private final ImageUploadService imageUploadService;
 
-    /** POST /images (multipart/form-data: file, email) -- synchrone. */
-    @PostMapping(value = "/images", consumes = "multipart/form-data")
-    public ResponseEntity<ImageUploadResponse> uploadImage(
-            @RequestParam("file") MultipartFile file, @RequestParam("email") String email) {
-        var saved = imageUploadService.upload(file, email);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ImageUploadResponse.from(saved));
-    }
+  /** POST /images (multipart/form-data: file, email) -- synchrone. */
+  @PostMapping(value = "/images", consumes = "multipart/form-data")
+  public ResponseEntity<ImageUploadResponse> uploadImage(
+      @RequestParam("file") MultipartFile file, @RequestParam("email") String email) {
+    var saved = imageUploadService.upload(file, email);
+    return ResponseEntity.status(HttpStatus.CREATED).body(ImageUploadResponse.from(saved));
+  }
 
-    /** GET /images -- liste toutes les images enregistrées. */
-    @GetMapping("/images")
-    public List<ImageUploadResponse> listImages() {
-        return imageUploadService.getAll().stream().map(ImageUploadResponse::from).toList();
-    }
+  /** GET /images -- liste toutes les images enregistrées. */
+  @GetMapping("/images")
+  public List<ImageUploadResponse> listImages() {
+    return imageUploadService.getAll().stream().map(ImageUploadResponse::from).toList();
+  }
 
-    /** GET /images/{id} -- une image par id. */
-    @GetMapping("/images/{id}")
-    public ImageUploadResponse getImage(@PathVariable UUID id) {
-        return ImageUploadResponse.from(imageUploadService.getById(id));
-    }
+  /** GET /images/{id} -- une image par id. */
+  @GetMapping("/images/{id}")
+  public ImageUploadResponse getImage(@PathVariable UUID id) {
+    return ImageUploadResponse.from(imageUploadService.getById(id));
+  }
 }

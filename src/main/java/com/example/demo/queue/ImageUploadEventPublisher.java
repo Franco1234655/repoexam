@@ -20,6 +20,9 @@ public class ImageUploadEventPublisher {
     queueConf
         .getSqsClient()
         .sendMessage(
-            SendMessageRequest.builder().queueUrl(queueConf.getQueueUrl()).messageBody(body).build());
+            SendMessageRequest.builder()
+                .queueUrl(queueConf.getQueueUrl())
+                .messageBody(body)
+                .build());
   }
 }
